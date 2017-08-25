@@ -1,6 +1,7 @@
 ﻿using RLDManager;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace RMGUI {
@@ -48,6 +49,67 @@ namespace RMGUI {
                 Strs.Items[Strs.SelectedIndex] = Dialog.Text;
                 Strs.SelectedIndex++;
             }
+        }
+
+        private void findKeyToolStripMenuItem_Click(object sender, EventArgs e) {
+            OpenFileDialog fd = new OpenFileDialog();
+            fd.Title = "Select a Script...";
+            fd.Filter = "All ExHIBIT Scripts File|*.rld";
+            if (fd.ShowDialog() == DialogResult.OK) {
+                MessageBox.Show("Please note, this is a brute force process,\nthe program will freeze for a time with a high CPU Usage\n(Maybe 1~2 hours is required.)", "RMGUI",MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                byte[] Script = System.IO.File.ReadAllBytes(fd.FileName);
+                if (DoubleThreadBruteForce(Script)) 
+                    MessageBox.Show("The Key is: 0x" + Key.ToString("X8"), "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                else
+                    MessageBox.Show("Failed to Catch the key", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        uint Key = 0;
+        private bool DoubleThreadBruteForce(byte[] Script) {
+            Thread T1 = new Thread(() => {
+                bool Sucess = RLD.FindKey(Script, out uint Key, false);
+                if (Sucess)
+                    this.Key = Key;
+                else
+                    Key = uint.MaxValue;
+            });
+            Thread T2 = new Thread(() => {
+                bool Sucess = RLD.FindKey(Script, out uint Key, true);
+                if (Sucess)
+                    this.Key = Key;
+                else
+                    Key = uint.MaxValue;
+            });
+            T1.Start();
+            T2.Start();
+            uint t = 400;
+            uint Dots = 2;
+            while (Key == 0) {
+                Application.DoEvents();
+                Thread.Sleep(100);
+                t -= 100;
+                if (t <= 0) {
+                    t = 400;
+                    Dots++;
+                    if (Dots == 3)
+                        Dots = 0;
+                    switch (Dots) {
+                        case 0:
+                            Text = "Finding Key.";
+                            break;
+                        case 1:
+                            Text = "Finding Key..";
+                            break;
+                        default:
+                            Text = "Finding Key...";
+                            break;
+                    }
+                }
+            }
+            if (Key == uint.MaxValue)
+                return false;
+            return true;
         }
     }
 }
