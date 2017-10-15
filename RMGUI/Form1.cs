@@ -107,6 +107,10 @@ namespace RMGUI {
                     }
                 }
             }
+            if (T1.IsAlive)
+                T1.Abort();
+            if (T2.IsAlive)
+                T2.Abort();
             if (Key == uint.MaxValue)
                 return false;
             return true;

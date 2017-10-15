@@ -187,7 +187,8 @@ namespace RLDManager
             return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81;
         }
         public void XOR(ref byte[] Content) {
-            uint Key = 0x39AA8BA0; //Princess Evangile
+            //uint Key = 0x39AA8BA0; //Princess Evangile
+            uint Key = 0xE69A420B; //Princess Evangile W
             //uint Key = 0xAD2B78EA; //Sakura no Mori Dreamers
 
             uint BlockCount = (uint)Content.Length;
@@ -208,14 +209,14 @@ namespace RLDManager
             uint Rst = GetDW(Script, 0x10u);
             if (Reverse) {
                 for (uint TKey = uint.MaxValue; TKey >= 0; TKey--) {
-                    if (((FindKeyTable(TKey)[0] ^ Rst) & 0xFFFFFFFE) == 0) {
+                    if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
                         Key = TKey;
                         return true;
                     }
                 }
             } else {
                 for (uint TKey = 0; TKey < uint.MaxValue; TKey++) {
-                    if (((FindKeyTable(TKey)[0] ^ Rst) & 0xFFFFFFFE) == 0) {
+                    if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
                         Key = TKey;
                         return true;
                     }
@@ -235,68 +236,78 @@ namespace RLDManager
             }
             return Keys;
         }
-        private static uint[] FindKeyTable(uint Seed) {
-            uint[] Keys = GenSeeds(Seed);
-            uint[] Seeds = new uint[Keys.Length];
+        private static uint FindKey(uint Seed) {
+            uint[] Keys = GenSeedsFast(Seed);
+            uint[] Seeds = new uint[0x270];
             Keys.CopyTo(Seeds, 0);
-            for (uint i = 0; i < 1; i++) {
-                uint Key = KeyWork(i, ref Keys, ref Seeds);
-                Keys[i] = Key ^ Seed;
-            }
-            return Keys;
+            uint Key = KeyWork(0, ref Keys, ref Seeds);
+            return Key ^ Seed;
         }
         private static uint[] GenSeeds(uint Key) {
-            uint EAX = Key;
-            uint Tmp = 0;
-            uint EDX = 0x00510010;
+            uint EDX = Key;
+            uint EAX = 0x00510010;
             uint ECX = 0x0000225C;
-
-            Tmp = EDX;
-            EDX = EAX;
-            EAX = Tmp;
 
             uint EBX = 0x270;
             uint[] Buffer = new uint[EBX];
-            uint EDI = 0;            
+            uint EDI = 0;
+
             do {
-                EAX = EDX;
+                //Gen Seed
                 ECX = (EDX * 0x10DCD) & 0xFFFFFFFF;
-                EDX = (EDX * 0x1C587629) & 0xFFFFFFFF;
-                ECX++;
-                EDX += 0x10DCE;
-                ECX >>= 0x10;
-                EAX = (EAX & 0xFFFF0000) | (ECX & 0x0000FFFF);
+                EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
                 Buffer[EDI++] = EAX;
+
+                //Begin Next
+                EDX = (EDX * 0x1C587629) & 0xFFFFFFFF;
+                EDX += 0x10DCE;
+
                 EBX--;
             } while (EBX != 0);
+            return Buffer;
+        }
+
+        private static uint[] GenSeedsFast(uint Key) {
+            uint EDX = Key;
+            uint ECX = 0x0000225C;
+
+            uint End = 0x18E;
+            uint[] Buffer = new uint[End];
+            uint Index = 0;
+
+            do {
+                //Gen Seed
+                ECX = (EDX * 0x10DCD) & 0xFFFFFFFF;
+                Buffer[Index++] = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
+
+                //Next
+                EDX = ((EDX * 0x1C587629) & 0xFFFFFFFF) + 0x10DCE;                
+            } while (Index < End);
             return Buffer;
         }
 
         private static uint KeyWork(uint i, ref uint[] Keys, ref uint[] OriKeys) {
             uint ECX = Keys[i];
             uint EDX = i + 1;
-            bool CF = EDX > 0x270;
             if (EDX >= Keys.Length)
                 EDX = 0;
+
             uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
-            CF = (EDI & 0x1) == 0x1;//SHR CF Check
+
+            bool CF = (EDI & 0x1) == 0x1;//SHR CF Check
             EDI >>= 1;
-            ECX = (CF ? uint.MaxValue : uint.MinValue) & 0x9908B0DF;
-            EDI ^= ECX;
+            EDI ^= (CF ? uint.MaxValue : uint.MinValue) & 0x9908B0DF;
             ECX = i + 0x18D;
             if (ECX >= Keys.Length)
                 ECX = (uint)(ECX - Keys.LongLength);
+
             EDI ^= OriKeys[ECX];
             OriKeys[i] = EDI;
-            uint EAX = EDI;
-            EDI >>= 0x0B;
-            EAX ^= EDI;
-            ECX = EAX;
-            EAX = ((EAX & 0xFF3A58AD) << 0x7) ^ ECX;
-            ECX = EAX;
-            EAX = ((EAX & 0xFFFFDF8C) << 0xF) ^ ECX;
-            ECX = EAX;
-            return (EAX >> 0x12) ^ ECX;
+
+            uint EAX = EDI ^ (EDI >> 0x0B);
+            EAX = ((EAX & 0xFF3A58AD) << 0x7) ^ EAX;
+            EAX = ((EAX & 0xFFFFDF8C) << 0xF) ^ EAX;
+            return (EAX >> 0x12) ^ EAX;
         }
 
         struct Result {
