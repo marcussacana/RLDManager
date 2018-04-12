@@ -58,8 +58,10 @@ namespace RMGUI {
             if (fd.ShowDialog() == DialogResult.OK) {
                 MessageBox.Show("Please note, this is a brute force process,\nthe program will freeze for a time with a high CPU Usage\n(Maybe 1~2 hours is required.)", "RMGUI",MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
                 byte[] Script = System.IO.File.ReadAllBytes(fd.FileName);
+
+                System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
                 if (DoubleThreadBruteForce(Script)) 
-                    MessageBox.Show("The Key is: 0x" + Key.ToString("X8"), "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("The Key is: 0x" + Key.ToString("X8") + "\nKey Saved, you can open your rld script now.", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 else
                     MessageBox.Show("Failed to Catch the key", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }

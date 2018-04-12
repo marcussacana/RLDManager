@@ -7,6 +7,14 @@ namespace RLDManager
 {
     public class RLD
     {
+
+
+        //public uint EncryptionKey = 0x39AA8BA0; //Princess Evangile
+        //public uint EncryptionKey = 0xE69A420B; //Princess Evangile W
+        public uint EncryptionKey = 0xAD2B78EA; //Sakura no Mori Dreamers
+
+
+
         private bool Status = false;
         private byte[] Script;
         public Encoding SJIS = Encoding.GetEncoding(932);
@@ -14,7 +22,31 @@ namespace RLDManager
         uint[] Lenghts;
         public RLD(byte[] Script) {
             this.Script = Script;
+
+            //Just to don't need rebuild this shit.
+            string CustomKey = AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt";
+            if (System.IO.File.Exists(CustomKey)) {
+                string Content = System.IO.File.ReadAllText(CustomKey).Trim('\r', '\n', ' ', '\t').ToLower();
+                if (Content.StartsWith("0x")) {
+                    string Hex = Content.Substring(2, Content.Length - 2);
+                    EncryptionKey = Convert.ToUInt32(Hex, 16);
+                } else {
+                    uint Val;
+                    if (uint.TryParse(Content, out Val)) {
+                        EncryptionKey = Val;
+                    }
+                }
+            } else {
+                System.IO.File.WriteAllText(CustomKey, "0x" + EncryptionKey.ToString("X8"));
+            }
+
         }
+
+        public RLD(byte[] Script, uint Key) {
+            this.Script = Script;
+            EncryptionKey = Key;
+        }
+        
 
         public string[] Import() {
             if (!Status) {
@@ -187,9 +219,7 @@ namespace RLDManager
             return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81;
         }
         public void XOR(ref byte[] Content) {
-            //uint Key = 0x39AA8BA0; //Princess Evangile
-            uint Key = 0xE69A420B; //Princess Evangile W
-            //uint Key = 0xAD2B78EA; //Sakura no Mori Dreamers
+            uint Key = EncryptionKey;
 
             uint BlockCount = (uint)Content.Length;
 
@@ -210,6 +240,10 @@ namespace RLDManager
             if (Reverse) {
                 for (uint TKey = uint.MaxValue; TKey >= 0; TKey--) {
                     if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
+                        if (!TestKey(Script, TKey))
+                            continue;
+                        
+
                         Key = TKey;
                         return true;
                     }
@@ -217,6 +251,9 @@ namespace RLDManager
             } else {
                 for (uint TKey = 0; TKey < uint.MaxValue; TKey++) {
                     if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
+                        if (!TestKey(Script, TKey))
+                            continue;
+
                         Key = TKey;
                         return true;
                     }
@@ -224,6 +261,15 @@ namespace RLDManager
             }
             Key = 0;
             return false;
+        }
+
+        private static bool TestKey(byte[] Script, uint Key) {
+            try {
+                RLD Reader = new RLD(Script, Key);
+                return Reader.Import().Length > 1;
+            } catch {
+                return false;
+            }
         }
 
         private static uint[] GenKeyTable(uint Seed) {
