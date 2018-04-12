@@ -70,14 +70,16 @@ namespace RMGUI {
         uint Key = 0;
         private bool DoubleThreadBruteForce(byte[] Script) {
             Thread T1 = new Thread(() => {
-                bool Sucess = RLD.FindKey(Script, out uint Key, false);
+                uint Key = 0;
+                bool Sucess = RLD.FindKey(Script, out Key, false);
                 if (Sucess)
                     this.Key = Key;
                 else
                     Key = uint.MaxValue;
             });
             Thread T2 = new Thread(() => {
-                bool Sucess = RLD.FindKey(Script, out uint Key, true);
+                uint Key = 0;
+                bool Sucess = RLD.FindKey(Script, out Key, true);
                 if (Sucess)
                     this.Key = Key;
                 else
