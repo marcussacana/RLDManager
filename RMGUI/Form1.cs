@@ -71,15 +71,7 @@ namespace RMGUI {
         private bool DoubleThreadBruteForce(byte[] Script) {
             Thread T1 = new Thread(() => {
                 uint Key = 0;
-                bool Sucess = RLD.FindKey(Script, out Key, false);
-                if (Sucess)
-                    this.Key = Key;
-                else
-                    Key = uint.MaxValue;
-            });
-            Thread T2 = new Thread(() => {
-                uint Key = 0;
-                bool Sucess = RLD.FindKey(Script, out Key, true);
+                bool Sucess = RLD.FindKey(Script, out Key);
                 if (Sucess)
                     this.Key = Key;
                 else
@@ -87,10 +79,9 @@ namespace RMGUI {
             });
             
             T1.Start();
-            T2.Start();
 
             uint Dots = 2;
-            while (Key == 0) {
+            while (T1.IsAlive) {
                 Application.DoEvents();
                 Thread.Sleep(400);
                 Dots++;
@@ -109,10 +100,7 @@ namespace RMGUI {
                 }
 
             }
-            if (T1.IsAlive)
-                T1.Abort();
-            if (T2.IsAlive)
-                T2.Abort();
+
             if (Key == uint.MaxValue)
                 return false;
             return true;

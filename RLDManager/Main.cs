@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace RLDManager
-{
-    public class RLD
-    {
+namespace RLDManager {
+    public class RLD {
 
 
         //public uint EncryptionKey = 0x39AA8BA0; //Princess Evangile
@@ -19,7 +18,7 @@ namespace RLDManager
         private byte[] Script;
         public Encoding SJIS = Encoding.GetEncoding(932);
         uint[] Offsets;
-        uint[] Lenghts;        
+        uint[] Lenghts;
         public RLD(byte[] Script) {
             this.Script = Script;
 
@@ -46,7 +45,7 @@ namespace RLDManager
             this.Script = Script;
             EncryptionKey = Key;
         }
-        
+
 
         public string[] Import() {
             if (!Status) {
@@ -144,10 +143,10 @@ namespace RLDManager
                 Valid = false,
                 StrIndxs = new List<uint>()
             };
-            if (Pos + 6 < Script.Length && Script[Pos] == 0xFF && Script[Pos+1] == 0xFF) {
+            if (Pos + 6 < Script.Length && Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
                 if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
                     uint StrIndx = Pos + 4;
-                    rst.Valid = IsChar(Script[StrIndx]) && IsChar(Script[StrIndx+1]);
+                    rst.Valid = IsChar(Script[StrIndx]) && IsChar(Script[StrIndx + 1]);
                     if (rst.Valid)
                         rst.StrIndxs.Add(StrIndx);
                 }
@@ -170,19 +169,19 @@ namespace RLDManager
                     }
                 }
             if (!rst.Valid) {
-                if (Script[Pos] == 0x2A && Script[Pos+1] == 0x00) {
+                if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00) {
                     uint Ptr = Pos - 1;
                     while (Ptr > 0x10 && Script[Ptr] == 0x00)
                         Ptr--;
                     uint i = Pos + 2;
-                    if (Script[Ptr] == 0xFF && Script[Ptr-1] == 0xFF) {
+                    if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF) {
                         if (IsChar(Script[i]) && IsChar(Script[i + 2])) {
                             rst.Valid = true;
                             rst.StrIndxs.Add(i);
                             while (i < Script.Length && Script[i] != 0x00)
                                 i++;
                             if (IsChar(Script[++i])) {
-                                if (IsChar(Script[i+2])) {
+                                if (IsChar(Script[i + 2])) {
                                     rst.StrIndxs.Add(i);
                                 }
                             }
@@ -218,6 +217,7 @@ namespace RLDManager
         private bool IsChar(byte b) {
             return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81;
         }
+        
         public void XOR(ref byte[] Content) {
             uint Key = EncryptionKey;
 
@@ -235,50 +235,91 @@ namespace RLDManager
             }
         }
 
-        static uint FindIncrement;
-        static uint FindDecrement;
+        static uint Progress = 0;
         public static string FindProgress {
             get {
-                double Prog = ((double)FindIncrement / uint.MaxValue) * 100;
-                Prog += ((double)(uint.MaxValue - FindDecrement) / uint.MaxValue) * 100;
-                Prog /= 2;
-
-                bool Failed = FindIncrement > FindDecrement;
-
-                return string.Format("K1: {0:X8}|K2: {1:X8}|Progress: {2}%|Failed: {3}", FindIncrement, FindDecrement, (int)Prog, Failed ? "Yes, Abort it!" : "Not Yet");
+                double Prog = ((double)Progress/uint.MaxValue) * 100;               
+                return string.Format("Remaining: {0}|Progress: {1}%", uint.MaxValue - Progress, (int)Prog);
             }
         }
 
-        public static bool FindKey(byte[] Script, out uint Key, bool Reverse) {
+        public static bool FindKey(byte[] Script, out uint FoundKey) {
+            uint Result = 0;
             uint Rst = GetDW(Script, 0x10u);
-            if (Reverse) {
+            Parallel.For(0, uint.MaxValue, (a) => {
+                if (Result > 0)
+                    return;
+
                 unchecked {
-                    for (FindDecrement = uint.MaxValue; FindDecrement >= 0; FindDecrement--) {
-                        if ((FindKey(FindDecrement) ^ Rst) < 2) {
-                            if (!TestKey(Script, FindDecrement))
-                                continue;
+                    uint Seed = (uint)a;
+
+                    uint[] Keys;
+                    uint EDX = Seed;
+                    uint ECX = 0;
+
+                    uint End = 0x18E;
+                    uint[] Buffer = new uint[End];
+                    uint Index = 0;
+
+                    do {
+                        //Gen Seed
+                        ECX = (EDX * 0x10DCD) + 1;
+                        Buffer[Index++] = (EDX & 0xFFFF0000) | ((ECX >> 0x10) & 0x0000FFFF);
+
+                        //Next
+                        EDX = (EDX * 0x1C587629) + 0x10DCE;
+                    } while (Index < End);
+                    Keys = Buffer;
 
 
-                            Key = FindDecrement;
-                            return true;
+
+
+                    uint Key;
+                    ECX = Keys[0];
+                    EDX = 1;
+                    if (EDX >= Keys.Length)
+                        EDX = 0;
+
+                    uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
+
+                    bool CF = (EDI & 0x1) == 1;//SHR CF Check
+                    EDI >>= 1;
+
+                    if (CF)
+                        EDI ^= 0x9908B0DF;
+
+                    ECX = 0x18D;
+                    if (ECX >= Keys.Length)
+                        ECX -= (uint)Keys.Length;
+
+                    EDI ^= Keys[ECX];
+                    Keys[0] = EDI;
+
+                    EDI ^= (EDI >> 0x0B);
+                    EDI ^= ((EDI & 0xFF3A58AD) << 0x7);
+                    EDI ^= ((EDI & 0xFFFFDF8C) << 0xF);
+                    Key = (EDI >> 0x12) ^ EDI;
+
+
+                    Key = Key ^ Seed;
+
+
+                    if ((Key ^ Rst) < 0xF) {
+                        if (TestKey(Script, Seed)) {
+                            Result = Seed;
                         }
                     }
                 }
-            } else {
-                unchecked {
-                    for (FindIncrement = 0; FindIncrement < uint.MaxValue; FindIncrement++) {
-                        if ((FindKey(FindIncrement) ^ Rst) < 2) {
-                            if (!TestKey(Script, FindIncrement))
-                                continue;
 
-                            Key = FindIncrement;
-                            return true;
-                        }
-                    }
-                }
-            }
-            Key = 0;
-            return false;
+                Progress++;
+            });
+
+            while (Result == 0x00 && Progress < uint.MaxValue)
+                System.Threading.Thread.Sleep(500);
+
+            Progress = uint.MaxValue;
+            FoundKey = Result;
+            return FoundKey > 0;
         }
 
         private static bool TestKey(byte[] Script, uint Key) {
@@ -302,13 +343,6 @@ namespace RLDManager
             }
             return Keys;
         }
-        private static uint FindKey(uint Seed) {
-            uint[] Keys = GenSeedsFast(Seed);
-            uint[] Seeds = new uint[0x270];
-            Keys.CopyTo(Seeds, 0);
-            uint Key = KeyWork(0, ref Keys, ref Seeds);
-            return Key ^ Seed;
-        }
 
         private static uint[] GenSeeds(uint Key) {
             uint EDX = Key;
@@ -318,42 +352,21 @@ namespace RLDManager
             uint EBX = 0x270;
             uint[] Buffer = new uint[EBX];
             uint EDI = 0;
-            
-                do {
-                    //Gen Seed
-                    ECX = (EDX * 0x10DCD);
-                    EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
-                    Buffer[EDI++] = EAX;
 
-                    //Begin Next
-                    EDX = (EDX * 0x1C587629);
-                    EDX += 0x10DCE;
+            do {
+                //Gen Seed
+                ECX = (EDX * 0x10DCD);
+                EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
+                Buffer[EDI++] = EAX;
 
-                    EBX--;
-                } while (EBX != 0);
-            
+                //Begin Next
+                EDX = (EDX * 0x1C587629);
+                EDX += 0x10DCE;
+
+                EBX--;
+            } while (EBX != 0);
+
             return Buffer;
-        }
-
-        private static uint[] GenSeedsFast(uint Key) {
-            unchecked {
-                uint EDX = Key;
-                uint ECX = 0x0000225C;
-
-                uint End = 0x18E;
-                uint[] Buffer = new uint[End];
-                uint Index = 0;
-
-                do {
-                    //Gen Seed
-                    ECX = (EDX * 0x10DCD);
-                    Buffer[Index++] = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
-
-                    //Next
-                    EDX = (EDX * 0x1C587629) + 0x10DCE;
-                } while (Index < End);
-                return Buffer;
-            }
         }
 
         private static uint KeyWork(uint i, ref uint[] Keys, ref uint[] OriKeys) {
@@ -388,7 +401,7 @@ namespace RLDManager
         struct Result {
             internal bool Valid;
             internal List<uint> StrIndxs;
-        }       
+        }
 
         //Set DWORD At
         private static void SetDWAt(ref byte[] content, uint pos, uint val) {
@@ -400,11 +413,11 @@ namespace RLDManager
 
         //Get DWord At
         public static uint GetDW(byte[] Arr, uint Pos) {
-            byte[] DW = new byte[] { Arr[Pos], Arr[Pos + 1], Arr[Pos + 2], Arr[Pos + 3]};
+            byte[] DW = new byte[] { Arr[Pos], Arr[Pos + 1], Arr[Pos + 2], Arr[Pos + 3] };
             if (!BitConverter.IsLittleEndian)
                 Array.Reverse(DW, 0, 4);
             return BitConverter.ToUInt32(DW, 0);
         }
-        
+
     }
 }
