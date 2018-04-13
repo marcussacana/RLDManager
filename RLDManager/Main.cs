@@ -19,7 +19,7 @@ namespace RLDManager
         private byte[] Script;
         public Encoding SJIS = Encoding.GetEncoding(932);
         uint[] Offsets;
-        uint[] Lenghts;
+        uint[] Lenghts;        
         public RLD(byte[] Script) {
             this.Script = Script;
 
@@ -234,28 +234,46 @@ namespace RLDManager
                 SetDWAt(ref Content, i, tmp ^ enc);
             }
         }
-        
+
+        static uint FindIncrement;
+        static uint FindDecrement;
+        public static string FindProgress {
+            get {
+                double Prog = ((double)FindIncrement / uint.MaxValue) * 100;
+                Prog += ((double)(uint.MaxValue - FindDecrement) / uint.MaxValue) * 100;
+                Prog /= 2;
+
+                bool Failed = FindIncrement > FindDecrement;
+
+                return string.Format("K1: {0:X8}|K2: {1:X8}|Progress: {2}%|Failed: {3}", FindIncrement, FindDecrement, (int)Prog, Failed ? "Yes, Abort it!" : "Not Yet");
+            }
+        }
+
         public static bool FindKey(byte[] Script, out uint Key, bool Reverse) {
             uint Rst = GetDW(Script, 0x10u);
             if (Reverse) {
-                for (uint TKey = uint.MaxValue; TKey >= 0; TKey--) {
-                    if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
-                        if (!TestKey(Script, TKey))
-                            continue;
-                        
+                unchecked {
+                    for (FindDecrement = uint.MaxValue; FindDecrement >= 0; FindDecrement--) {
+                        if ((FindKey(FindDecrement) ^ Rst) < 2) {
+                            if (!TestKey(Script, FindDecrement))
+                                continue;
 
-                        Key = TKey;
-                        return true;
+
+                            Key = FindDecrement;
+                            return true;
+                        }
                     }
                 }
             } else {
-                for (uint TKey = 0; TKey < uint.MaxValue; TKey++) {
-                    if (((FindKey(TKey) ^ Rst) & 0xFFFFFFFE) == 0) {
-                        if (!TestKey(Script, TKey))
-                            continue;
+                unchecked {
+                    for (FindIncrement = 0; FindIncrement < uint.MaxValue; FindIncrement++) {
+                        if ((FindKey(FindIncrement) ^ Rst) < 2) {
+                            if (!TestKey(Script, FindIncrement))
+                                continue;
 
-                        Key = TKey;
-                        return true;
+                            Key = FindIncrement;
+                            return true;
+                        }
                     }
                 }
             }
@@ -266,7 +284,9 @@ namespace RLDManager
         private static bool TestKey(byte[] Script, uint Key) {
             try {
                 RLD Reader = new RLD(Script, Key);
-                return Reader.Import().Length > 1;
+                var Result = Reader.Import();
+
+                return Result.Length > 2;
             } catch {
                 return false;
             }
@@ -289,6 +309,7 @@ namespace RLDManager
             uint Key = KeyWork(0, ref Keys, ref Seeds);
             return Key ^ Seed;
         }
+
         private static uint[] GenSeeds(uint Key) {
             uint EDX = Key;
             uint EAX = 0x00510010;
@@ -297,63 +318,71 @@ namespace RLDManager
             uint EBX = 0x270;
             uint[] Buffer = new uint[EBX];
             uint EDI = 0;
+            
+                do {
+                    //Gen Seed
+                    ECX = (EDX * 0x10DCD);
+                    EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
+                    Buffer[EDI++] = EAX;
 
-            do {
-                //Gen Seed
-                ECX = (EDX * 0x10DCD) & 0xFFFFFFFF;
-                EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
-                Buffer[EDI++] = EAX;
+                    //Begin Next
+                    EDX = (EDX * 0x1C587629);
+                    EDX += 0x10DCE;
 
-                //Begin Next
-                EDX = (EDX * 0x1C587629) & 0xFFFFFFFF;
-                EDX += 0x10DCE;
-
-                EBX--;
-            } while (EBX != 0);
+                    EBX--;
+                } while (EBX != 0);
+            
             return Buffer;
         }
 
         private static uint[] GenSeedsFast(uint Key) {
-            uint EDX = Key;
-            uint ECX = 0x0000225C;
+            unchecked {
+                uint EDX = Key;
+                uint ECX = 0x0000225C;
 
-            uint End = 0x18E;
-            uint[] Buffer = new uint[End];
-            uint Index = 0;
+                uint End = 0x18E;
+                uint[] Buffer = new uint[End];
+                uint Index = 0;
 
-            do {
-                //Gen Seed
-                ECX = (EDX * 0x10DCD) & 0xFFFFFFFF;
-                Buffer[Index++] = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
+                do {
+                    //Gen Seed
+                    ECX = (EDX * 0x10DCD);
+                    Buffer[Index++] = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
 
-                //Next
-                EDX = ((EDX * 0x1C587629) & 0xFFFFFFFF) + 0x10DCE;                
-            } while (Index < End);
-            return Buffer;
+                    //Next
+                    EDX = (EDX * 0x1C587629) + 0x10DCE;
+                } while (Index < End);
+                return Buffer;
+            }
         }
 
         private static uint KeyWork(uint i, ref uint[] Keys, ref uint[] OriKeys) {
-            uint ECX = Keys[i];
-            uint EDX = i + 1;
-            if (EDX >= Keys.Length)
-                EDX = 0;
+            unchecked {
+                uint ECX = Keys[i];
+                uint EDX = i + 1;
+                if (EDX >= Keys.Length)
+                    EDX = 0;
 
-            uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
+                uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
 
-            bool CF = (EDI & 0x1) == 0x1;//SHR CF Check
-            EDI >>= 1;
-            EDI ^= (CF ? uint.MaxValue : uint.MinValue) & 0x9908B0DF;
-            ECX = i + 0x18D;
-            if (ECX >= Keys.Length)
-                ECX = (uint)(ECX - Keys.LongLength);
+                bool CF = (EDI & 0x1) == 1;//SHR CF Check
+                EDI >>= 1;
 
-            EDI ^= OriKeys[ECX];
-            OriKeys[i] = EDI;
+                if (CF)
+                    EDI ^= 0x9908B0DF;
 
-            uint EAX = EDI ^ (EDI >> 0x0B);
-            EAX = ((EAX & 0xFF3A58AD) << 0x7) ^ EAX;
-            EAX = ((EAX & 0xFFFFDF8C) << 0xF) ^ EAX;
-            return (EAX >> 0x12) ^ EAX;
+                ECX = i + 0x18D;
+                if (ECX >= Keys.Length)
+                    ECX -= (uint)Keys.Length;
+
+                EDI ^= OriKeys[ECX];
+                OriKeys[i] = EDI;
+
+                EDI ^= (EDI >> 0x0B);
+                EDI ^= ((EDI & 0xFF3A58AD) << 0x7);
+                EDI ^= ((EDI & 0xFFFFDF8C) << 0xF);
+                return (EDI >> 0x12) ^ EDI;
+            }
         }
 
         struct Result {

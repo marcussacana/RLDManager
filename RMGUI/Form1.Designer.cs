@@ -40,7 +40,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.Strs.FormattingEnabled = true;
             this.Strs.Location = new System.Drawing.Point(9, 10);
-            this.Strs.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Strs.Margin = new System.Windows.Forms.Padding(2);
             this.Strs.Name = "Strs";
             this.Strs.Size = new System.Drawing.Size(447, 316);
             this.Strs.TabIndex = 0;
@@ -51,7 +51,7 @@
             this.Dialog.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.Dialog.Location = new System.Drawing.Point(9, 339);
-            this.Dialog.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Dialog.Margin = new System.Windows.Forms.Padding(2);
             this.Dialog.Name = "Dialog";
             this.Dialog.Size = new System.Drawing.Size(447, 20);
             this.Dialog.TabIndex = 1;
@@ -65,26 +65,26 @@
             this.saveToolStripMenuItem,
             this.findKeyToolStripMenuItem});
             this.MS.Name = "MS";
-            this.MS.Size = new System.Drawing.Size(153, 92);
+            this.MS.Size = new System.Drawing.Size(120, 70);
             // 
             // openToolStripMenuItem
             // 
             this.openToolStripMenuItem.Name = "openToolStripMenuItem";
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.openToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
             this.openToolStripMenuItem.Text = "Open";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
             // 
             // saveToolStripMenuItem
             // 
             this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
-            this.saveToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.saveToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
             this.saveToolStripMenuItem.Text = "Save";
             this.saveToolStripMenuItem.Click += new System.EventHandler(this.saveToolStripMenuItem_Click);
             // 
             // findKeyToolStripMenuItem
             // 
             this.findKeyToolStripMenuItem.Name = "findKeyToolStripMenuItem";
-            this.findKeyToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.findKeyToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
             this.findKeyToolStripMenuItem.Text = "Find Key";
             this.findKeyToolStripMenuItem.Click += new System.EventHandler(this.findKeyToolStripMenuItem_Click);
             // 
@@ -96,9 +96,10 @@
             this.ContextMenuStrip = this.MS;
             this.Controls.Add(this.Dialog);
             this.Controls.Add(this.Strs);
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.Name = "Form1";
             this.Text = "RLD Manager GUI";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed);
             this.MS.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();

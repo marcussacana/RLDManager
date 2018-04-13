@@ -1,6 +1,6 @@
 ﻿using RLDManager;
 using System;
-using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -56,13 +56,13 @@ namespace RMGUI {
             fd.Title = "Select a Script...";
             fd.Filter = "All ExHIBIT Scripts File|*.rld";
             if (fd.ShowDialog() == DialogResult.OK) {
-                MessageBox.Show("Please note, this is a brute force process,\nthe program will freeze for a time with a high CPU Usage\n(Maybe 1~2 hours is required.)", "RMGUI",MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+                MessageBox.Show("Please note, this is a brute force process,\nthe program will freeze for a time with a high CPU Usage\n(Maybe 2~3 hours is required.)", "RMGUI",MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
                 byte[] Script = System.IO.File.ReadAllBytes(fd.FileName);
-
-                System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
-                if (DoubleThreadBruteForce(Script)) 
+                
+                if (DoubleThreadBruteForce(Script)) {
+                    System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
                     MessageBox.Show("The Key is: 0x" + Key.ToString("X8") + "\nKey Saved, you can open your rld script now.", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                else
+                } else
                     MessageBox.Show("Failed to Catch the key", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -85,31 +85,29 @@ namespace RMGUI {
                 else
                     Key = uint.MaxValue;
             });
+            
             T1.Start();
             T2.Start();
-            uint t = 400;
+
             uint Dots = 2;
             while (Key == 0) {
                 Application.DoEvents();
-                Thread.Sleep(100);
-                t -= 100;
-                if (t <= 0) {
-                    t = 400;
-                    Dots++;
-                    if (Dots == 3)
-                        Dots = 0;
-                    switch (Dots) {
-                        case 0:
-                            Text = "Finding Key.";
-                            break;
-                        case 1:
-                            Text = "Finding Key..";
-                            break;
-                        default:
-                            Text = "Finding Key...";
-                            break;
-                    }
+                Thread.Sleep(400);
+                Dots++;
+                if (Dots == 3)
+                    Dots = 0;
+                switch (Dots) {
+                    case 0:
+                        Text = "Finding Key.   |" + RLD.FindProgress;
+                        break;
+                    case 1:
+                        Text = "Finding Key..  |" + RLD.FindProgress;
+                        break;
+                    default:
+                        Text = "Finding Key... |" + RLD.FindProgress;
+                        break;
                 }
+
             }
             if (T1.IsAlive)
                 T1.Abort();
@@ -118,6 +116,10 @@ namespace RMGUI {
             if (Key == uint.MaxValue)
                 return false;
             return true;
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e) {
+            Environment.Exit(0);
         }
     }
 }
