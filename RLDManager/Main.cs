@@ -235,7 +235,7 @@ namespace RLDManager {
             }
         }
 
-        static uint Progress = 0;
+        static long Progress = 0;
         public static string FindProgress {
             get {
                 double Prog = ((double)Progress/uint.MaxValue) * 100;               
@@ -243,11 +243,15 @@ namespace RLDManager {
             }
         }
 
-        public static bool FindKey(byte[] Script, out uint FoundKey) {
-            uint Result = 0;
+        public static bool FindKey(byte[] Script, out uint[] FoundKey) {
+            object Locker = new object();
+            List<uint> Results = new List<uint>();
+            bool Continue = true;
             uint Rst = GetDW(Script, 0x10u);
-            Parallel.For(0, uint.MaxValue, (a) => {
-                if (Result > 0)
+            var Operation = Parallel.For(0, uint.MaxValue, a => {
+                Progress++;
+
+                if (Continue)
                     return;
 
                 unchecked {
@@ -270,11 +274,7 @@ namespace RLDManager {
                         EDX = (EDX * 0x1C587629) + 0x10DCE;
                     } while (Index < End);
                     Keys = Buffer;
-
-
-
-
-                    uint Key;
+                    
                     ECX = Keys[0];
                     EDX = 1;
                     if (EDX >= Keys.Length)
@@ -298,40 +298,35 @@ namespace RLDManager {
                     EDI ^= (EDI >> 0x0B);
                     EDI ^= ((EDI & 0xFF3A58AD) << 0x7);
                     EDI ^= ((EDI & 0xFFFFDF8C) << 0xF);
-                    Key = (EDI >> 0x12) ^ EDI;
+                    uint Key = (EDI >> 0x12) ^ EDI;
 
 
-                    Key = Key ^ Seed;
-
-
+                    Key ^= Seed;
+                    
                     if ((Key ^ Rst) < 0xF) {
-                        if (TestKey(Script, Seed)) {
-                            Result = Seed;
+                        lock (Locker) {
+                            Results.Add(Seed);
+
+
+                            RLD Reader = new RLD(Script, Key);
+                            var Result = Reader.Import();
+
+                            if (Result.Length > 2) {
+                                Continue = false;
+                            }
                         }
                     }
                 }
-
-                Progress++;
             });
 
-            while (Result == 0x00 && Progress < uint.MaxValue)
+            while (!Operation.IsCompleted)
                 System.Threading.Thread.Sleep(500);
 
             Progress = uint.MaxValue;
-            FoundKey = Result;
-            return FoundKey > 0;
+            FoundKey = Results.ToArray();
+            return FoundKey.Length > 0;
         }
-
-        private static bool TestKey(byte[] Script, uint Key) {
-            try {
-                RLD Reader = new RLD(Script, Key);
-                var Result = Reader.Import();
-
-                return Result.Length > 2;
-            } catch {
-                return false;
-            }
-        }
+        
 
         private static uint[] GenKeyTable(uint Seed) {
             uint[] Keys = GenSeeds(Seed);

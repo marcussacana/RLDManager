@@ -60,22 +60,25 @@ namespace RMGUI {
                 byte[] Script = System.IO.File.ReadAllBytes(fd.FileName);
                 
                 if (DoubleThreadBruteForce(Script)) {
-                    System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
-                    MessageBox.Show("The Key is: 0x" + Key.ToString("X8") + "\nKey Saved, you can open your rld script now.", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    bool Multiple = Key.Length > 1;
+                    foreach (uint Key in Key) {
+                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
+                        MessageBox.Show(Multiple ? "The Key can be is: 0x": "The Key is: 0x" + Key.ToString("X8"), "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                 } else
                     MessageBox.Show("Failed to Catch the key", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        uint Key = 0;
+        uint[] Key = new uint[0];
         private bool DoubleThreadBruteForce(byte[] Script) {
             Thread T1 = new Thread(() => {
-                uint Key = 0;
+                uint[] Key = new uint[0];
                 bool Sucess = RLD.FindKey(Script, out Key);
                 if (Sucess)
                     this.Key = Key;
                 else
-                    Key = uint.MaxValue;
+                    Key = new uint[0];
             });
             
             T1.Start();
@@ -101,7 +104,7 @@ namespace RMGUI {
 
             }
 
-            if (Key == uint.MaxValue)
+            if (Key.Length == 0)
                 return false;
             return true;
         }
