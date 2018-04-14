@@ -244,6 +244,7 @@ namespace RLDManager {
         }
 
         public static bool FindKey(byte[] Script, out uint[] FoundKey) {
+            Progress = 0;
             object Locker = new object();
             List<uint> Results = new List<uint>();
             bool Continue = true;
