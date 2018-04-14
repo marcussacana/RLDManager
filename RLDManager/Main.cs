@@ -248,79 +248,84 @@ namespace RLDManager {
             List<uint> Results = new List<uint>();
             bool Continue = true;
             uint Rst = GetDW(Script, 0x10u);
-            var Operation = Parallel.For(0, uint.MaxValue, a => {
-                Progress++;
+            
+            var Thread = new System.Threading.Thread(() => {
+                Parallel.For(0, uint.MaxValue, (a, loop) => {
+                    Progress++;
 
-                if (Continue)
-                    return;
+                    if (!Continue)
+                        loop.Break();
 
-                unchecked {
-                    uint Seed = (uint)a;
+                    unchecked {
+                        uint Seed = (uint)a;
 
-                    uint[] Keys;
-                    uint EDX = Seed;
-                    uint ECX = 0;
+                        uint[] Keys;
+                        uint EDX = Seed;
+                        uint ECX = 0;
 
-                    uint End = 0x18E;
-                    uint[] Buffer = new uint[End];
-                    uint Index = 0;
+                        uint End = 0x18E;
+                        uint[] Buffer = new uint[End];
+                        uint Index = 0;
 
-                    do {
-                        //Gen Seed
-                        ECX = (EDX * 0x10DCD) + 1;
-                        Buffer[Index++] = (EDX & 0xFFFF0000) | ((ECX >> 0x10) & 0x0000FFFF);
+                        do {
+                            //Gen Seed
+                            ECX = (EDX * 0x10DCD) + 1;
+                            Buffer[Index++] = (EDX & 0xFFFF0000) | ((ECX >> 0x10) & 0x0000FFFF);
 
-                        //Next
-                        EDX = (EDX * 0x1C587629) + 0x10DCE;
-                    } while (Index < End);
-                    Keys = Buffer;
-                    
-                    ECX = Keys[0];
-                    EDX = 1;
-                    if (EDX >= Keys.Length)
-                        EDX = 0;
+                            //Next
+                            EDX = (EDX * 0x1C587629) + 0x10DCE;
+                        } while (Index < End);
+                        Keys = Buffer;
 
-                    uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
+                        ECX = Keys[0];
+                        EDX = 1;
+                        if (EDX >= Keys.Length)
+                            EDX = 0;
 
-                    bool CF = (EDI & 0x1) == 1;//SHR CF Check
-                    EDI >>= 1;
+                        uint EDI = (((Keys[EDX] ^ ECX) & 0x7FFFFFFF) ^ ECX);
 
-                    if (CF)
-                        EDI ^= 0x9908B0DF;
+                        bool CF = (EDI & 0x1) == 1;//SHR CF Check
+                        EDI >>= 1;
 
-                    ECX = 0x18D;
-                    if (ECX >= Keys.Length)
-                        ECX -= (uint)Keys.Length;
+                        if (CF)
+                            EDI ^= 0x9908B0DF;
 
-                    EDI ^= Keys[ECX];
-                    Keys[0] = EDI;
+                        ECX = 0x18D;
+                        if (ECX >= Keys.Length)
+                            ECX -= (uint)Keys.Length;
 
-                    EDI ^= (EDI >> 0x0B);
-                    EDI ^= ((EDI & 0xFF3A58AD) << 0x7);
-                    EDI ^= ((EDI & 0xFFFFDF8C) << 0xF);
-                    uint Key = (EDI >> 0x12) ^ EDI;
+                        EDI ^= Keys[ECX];
+                        Keys[0] = EDI;
+
+                        EDI ^= (EDI >> 0x0B);
+                        EDI ^= ((EDI & 0xFF3A58AD) << 0x7);
+                        EDI ^= ((EDI & 0xFFFFDF8C) << 0xF);
+                        uint Key = (EDI >> 0x12) ^ EDI;
 
 
-                    Key ^= Seed;
-                    
-                    if ((Key ^ Rst) < 0xF) {
-                        lock (Locker) {
+                        Key ^= Seed;
+
+                        if ((Key ^ Rst) < 0xF) {
                             Results.Add(Seed);
-
-
-                            RLD Reader = new RLD(Script, Key);
-                            var Result = Reader.Import();
-
-                            if (Result.Length > 2) {
-                                Continue = false;
-                            }
                         }
                     }
-                }
+                });
             });
 
-            while (!Operation.IsCompleted)
+            Thread.Start();
+
+            int LastCount = 0;
+            while (Thread.IsAlive) {
                 System.Threading.Thread.Sleep(500);
+                if (Results.Count > LastCount) {
+                    LastCount = Results.Count;
+
+                    byte[] Tmp = new byte[Script.Length];
+                    Script.CopyTo(Tmp, 0);
+
+                    Continue = new RLD(Tmp, Results.Last()).Import().Length < 2;
+                }
+            }
 
             Progress = uint.MaxValue;
             FoundKey = Results.ToArray();

@@ -1,6 +1,7 @@
 ﻿using RLDManager;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -58,14 +59,22 @@ namespace RMGUI {
             if (fd.ShowDialog() == DialogResult.OK) {
                 MessageBox.Show("Please note, this is a brute force process,\nthe program will freeze for a time with a high CPU Usage\n(Maybe 2~3 hours is required.)", "RMGUI",MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
                 byte[] Script = System.IO.File.ReadAllBytes(fd.FileName);
-                
+
+                bool Failed = true;
                 if (DoubleThreadBruteForce(Script)) {
-                    bool Multiple = Key.Length > 1;
-                    foreach (uint Key in Key) {
-                        System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
-                        MessageBox.Show(Multiple ? "The Key can be is: 0x": "The Key is: 0x" + Key.ToString("X8"), "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    try {
+                        uint Key = (from x in this.Key where new RLD(Script, x).Import().Length > 2 select x).First();
+                        if (Key != 0) {
+                            Failed = false;
+                            System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
+                            MessageBox.Show("The Key is: 0x" + Key.ToString("X8"), "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                    } catch {
+
                     }
-                } else
+                } 
+
+                if (Failed)
                     MessageBox.Show("Failed to Catch the key", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -77,8 +86,6 @@ namespace RMGUI {
                 bool Sucess = RLD.FindKey(Script, out Key);
                 if (Sucess)
                     this.Key = Key;
-                else
-                    Key = new uint[0];
             });
             
             T1.Start();
