@@ -324,6 +324,9 @@ namespace RLDManager {
                     Script.CopyTo(Tmp, 0);
 
                     Continue = new RLD(Tmp, Results.Last()).Import().Length < 2;
+
+                    if (!Continue)
+                        Results = new List<uint>() { Results.Last() };
                 }
             }
 

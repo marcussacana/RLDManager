@@ -63,7 +63,7 @@ namespace RMGUI {
                 bool Failed = true;
                 if (DoubleThreadBruteForce(Script)) {
                     try {
-                        uint Key = (from x in this.Key where new RLD(Script, x).Import().Length > 2 select x).First();
+                        uint Key = this.Key.Last();
                         if (Key != 0) {
                             Failed = false;
                             System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", Key.ToString("X8"));
