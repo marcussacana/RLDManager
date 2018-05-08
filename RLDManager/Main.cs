@@ -5,40 +5,69 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace RLDManager {
-    public class RLD {
+    public class RLD {  
+        /// <summary>
+        /// Get The Encryption Key to the given script
+        /// </summary>
+        /// <param name="Script">The Script to Get the Key</param>
+        /// <returns>The key, if fails returns uint.MaxValue</returns>
+        public static uint SelectKey(byte[] Script) {
+            uint[] KnowedKeys = new uint[] {
+                0xAD2B78EA, //Sakura no Mori Dreamers
+                0x39AA8BA0, //Princess Evangile
+                0xE69A420B, //Princess Evangile W
+                0xC9E849B1, //Magical Marriage Lunatics [JP]
+                0xFA267D75  //Magical Marriage Lunatics [EN]                
+            };
+            if (System.IO.File.Exists("RLDKeys.txt")) {
+                string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
+                foreach (string Content in CustomKeys) {
+                    uint Key;
+                    if (Content.StartsWith("0x")) {
+                        string Hex = Content.Substring(2, Content.Length - 2);
+                        Key = Convert.ToUInt32(Hex, 16);
+                    } else {
+                        if (!uint.TryParse(Content, out Key))
+                            continue;
+                    }
 
+                    KnowedKeys = KnowedKeys.Append(Key);
+                }
+            }
+            byte[] Tmp = new byte[Script.Length];
+            if (LastKnowedKey != 0) {
+                Script.CopyTo(Tmp, 0);
+                if (new RLD(Tmp, LastKnowedKey).Import().Length > 2)
+                    return LastKnowedKey;
+            }
 
-        //public uint EncryptionKey = 0x39AA8BA0; //Princess Evangile
-        //public uint EncryptionKey = 0xE69A420B; //Princess Evangile W
-        public uint EncryptionKey = 0xAD2B78EA; //Sakura no Mori Dreamers
+            foreach (uint Key in KnowedKeys) {
+                Script.CopyTo(Tmp, 0);
+                if (new RLD(Tmp, Key).Import().Length > 2) {
+                    LastKnowedKey = Key;
+                    return Key;
+                }
+            }
 
+            return uint.MaxValue;
+        }
 
+        static uint LastKnowedKey = 0;
+        public uint EncryptionKey = 0;
+        public Encoding Encoding = Encoding.GetEncoding(932);
 
-        private bool Status = false;
-        private byte[] Script;
-        public Encoding SJIS = Encoding.GetEncoding(932);
+        bool Decrypted = false;
+        byte[] Script;
         uint[] Offsets;
         uint[] Lenghts;
         public RLD(byte[] Script) {
             this.Script = Script;
 
-            //Just to don't need rebuild this shit.
-            string CustomKey = AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt";
-            if (System.IO.File.Exists(CustomKey)) {
-                string Content = System.IO.File.ReadAllText(CustomKey).Trim('\r', '\n', ' ', '\t').ToLower();
-                if (Content.StartsWith("0x")) {
-                    string Hex = Content.Substring(2, Content.Length - 2);
-                    EncryptionKey = Convert.ToUInt32(Hex, 16);
-                } else {
-                    uint Val;
-                    if (uint.TryParse(Content, out Val)) {
-                        EncryptionKey = Val;
-                    }
-                }
-            } else {
-                System.IO.File.WriteAllText(CustomKey, "0x" + EncryptionKey.ToString("X8"));
-            }
+            uint Key = SelectKey(Script);
+            if (Key == uint.MaxValue)
+                throw new Exception("Unknown Encryption Key");
 
+            EncryptionKey = Key;
         }
 
         public RLD(byte[] Script, uint Key) {
@@ -48,10 +77,12 @@ namespace RLDManager {
 
 
         public string[] Import() {
-            if (!Status) {
+            if (!Decrypted) {
+                Decrypted = true;
                 XOR(ref Script);
-                //System.IO.File.WriteAllBytes("dump.rld", Script);//debug
-                Status = true;
+
+                if (System.Diagnostics.Debugger.IsAttached)
+                    System.IO.File.WriteAllBytes("dump.rld", Script);
             }
             Offsets = new uint[0];
             for (uint i = 0; i < Script.Length; i++) {
@@ -62,10 +93,8 @@ namespace RLDManager {
                 foreach (uint ptr in Info.StrIndxs) {
                     if (Offsets.Contains(ptr) || GetStrLen(ptr) < 3 || IsCommand(ptr))
                         continue;
-                    ;
-                    //Save offset
-                    Array.Resize(ref Offsets, Offsets.Length + 1);
-                    Offsets[Offsets.Length - 1] = ptr;
+
+                    Offsets = Offsets.Append(ptr);
                 }
             }
             //Initialize Variables
@@ -73,101 +102,97 @@ namespace RLDManager {
             Lenghts = new uint[Offsets.Length];
 
             for (int i = 0; i < Strs.Length; i++) {
-                //Initialize String Variables
-                byte[] Buff = new byte[0];
-                uint Pos = Offsets[i];
-
-                //Copy String
-                while (Script[Pos] != 0x00) {
-                    Array.Resize(ref Buff, Buff.Length + 1);
-                    Buff[Buff.Length - 1] = Script[Pos++];
-                }
-
-                //Save String and Lenght
-                Strs[i] = SJIS.GetString(Buff);
-                Lenghts[i] = (uint)Buff.LongLength;
+                Strs[i] = Script.GetStringAt(Offsets[i], Encoding);
+                Lenghts[i] = GetStrLen(Offsets[i]);
             }
             return Strs;
         }
 
         private bool IsCommand(uint ptr) {
-            bool IsCommand = true;
-            while (Script[ptr] != 0x00) {
-                byte Char = Script[ptr++];
-                IsCommand &= (Char >= '0' && Char <= '9') || Char == '-' || Char == ',';
+            string String = Script.GetStringAt(ptr, Encoding);
+            string Minified = string.Empty;
+            foreach (char c in String) {
+                if (c >= '0' && c <= '9')
+                    continue;
+                if (c == ',' || c == '.')
+                    continue;
+                if (c == '-' || c == '*')
+                    continue;
+                if (c == ':')
+                    continue;
+                if (c == 0x0C || c == 0xAB)//?????
+                    continue;
+
+                Minified += c;
             }
-            return IsCommand;
+
+            return Minified.Length < String.Length / 4;
         }
 
         public byte[] Export(string[] Strings) {
             if (Strings.Length != Offsets.Length)
                 throw new Exception("You Can't add new strings.");
-            byte[] OutScript = new byte[Script.Length];
-            Script.CopyTo(OutScript, 0);
+            byte[] Output = new byte[Script.Length];
+            Script.CopyTo(Output, 0);
             //Reverse Replace to don't need update offsets after a change.
             for (int i = Offsets.Length - 1; i >= 0; i--) {
                 uint POS = Offsets[i];
                 uint LEN = Lenghts[i];
 
                 //Get Content Before the string
-                byte[] Bef = GetRegion(OutScript, 0, POS);
+                byte[] Bef = Output.GetRange(0, POS);
 
                 //Compile String
-                byte[] Str = SJIS.GetBytes(Strings[i]);
+                byte[] Str = Encoding.GetBytes(Strings[i]);
 
                 //Get Content After the string
-                byte[] Aft = GetRegion(OutScript, POS + LEN, (uint)OutScript.LongLength - (POS + LEN));
+                byte[] Aft = Output.GetRange(POS + LEN, (uint)Output.LongLength - (POS + LEN));
 
-                //Resize OutScript
-                OutScript = new byte[Bef.LongLength + Aft.LongLength + Str.LongLength];
-
-                //Merge Data
-                Bef.CopyTo(OutScript, 0);
-                Str.CopyTo(OutScript, Bef.LongLength);
-                Aft.CopyTo(OutScript, Bef.LongLength + Str.LongLength);
+                //Merge Parts
+                Output = new byte[0];
+                Output = Output.Append(Bef);
+                Output = Output.Append(Str);
+                Output = Output.Append(Aft);
             }
             //Encrypt and Return
-            XOR(ref OutScript);
-            return OutScript;
+            XOR(ref Output);
+            return Output;
         }
 
-        private byte[] GetRegion(byte[] From, uint Start, uint Lenght) {
-            byte[] To = new byte[Lenght];
-            for (uint i = Start; i - Start < Lenght; i++)
-                To[i - Start] = From[i];
-            return To;
-        }
+       
 
         private Result Scan(uint Pos) {
             Result rst = new Result() {
                 Valid = false,
                 StrIndxs = new List<uint>()
             };
-            if (Pos + 6 < Script.Length && Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
-                if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
-                    uint StrIndx = Pos + 4;
-                    rst.Valid = IsChar(Script[StrIndx]) && IsChar(Script[StrIndx + 1]);
-                    if (rst.Valid)
-                        rst.StrIndxs.Add(StrIndx);
+            if (Pos + 6 < Script.Length) {
+                if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
+                    if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
+                        uint StrIndx = Pos + 4;
+                        rst.Valid = IsChar(Script[StrIndx]) && IsChar(Script[StrIndx + 1]);
+                        if (rst.Valid)
+                            rst.StrIndxs.Add(StrIndx);
+                    }
                 }
-            }
-            if (!rst.Valid)
-                if (Pos + 6 < Script.Length && Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF && Script[Pos + 2] == 0xFF && Script[Pos + 3] == 0xFF) {
-                    if (IsChar(Script[Pos + 4])) {
-                        if (IsValidStr(Pos + 4)) {
-                            rst.Valid = true;
-                            if (IsValidDoubleStr(Pos + 4)) {
-                                uint Ptr = Pos + 4;
-                                rst.StrIndxs.Add(Ptr);
-                                while (Script[Ptr++] != 0x00)
-                                    continue;
-                                rst.StrIndxs.Add(Ptr);
-                            } else {
-                                rst.StrIndxs.Add(Pos + 4);
+                if (!rst.Valid)
+                    if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF && Script[Pos + 2] == 0xFF && Script[Pos + 3] == 0xFF) {
+                        if (IsChar(Script[Pos + 4])) {
+                            if (IsValidStr(Pos + 4)) {
+                                rst.Valid = true;
+                                if (IsValidDoubleStr(Pos + 4)) {
+                                    uint Ptr = Pos + 4;
+                                    rst.StrIndxs.Add(Ptr);
+                                    while (Script[Ptr++] != 0x00)
+                                        continue;
+                                    rst.StrIndxs.Add(Ptr);
+                                } else {
+                                    rst.StrIndxs.Add(Pos + 4);
+                                }
                             }
                         }
                     }
-                }
+            }
             if (!rst.Valid) {
                 if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00) {
                     uint Ptr = Pos - 1;
@@ -188,7 +213,8 @@ namespace RLDManager {
                         }
                     }
                 }
-            }
+            }         
+
             return rst;
         }
 
@@ -229,7 +255,7 @@ namespace RLDManager {
             BlockCount -= (BlockCount % 4);
             uint[] Keys = GenKeyTable(Key);
             for (uint i = 0x10, ri = 0; i < BlockCount; i += 4, ri++) {
-                uint enc = GetDW(Content, i);
+                uint enc = Content.GetDW(i);
                 uint tmp = Keys[(ri & 0xFF)];
                 SetDWAt(ref Content, i, tmp ^ enc);
             }
@@ -248,7 +274,7 @@ namespace RLDManager {
             object Locker = new object();
             List<uint> Results = new List<uint>();
             bool Continue = true;
-            uint Rst = GetDW(Script, 0x10u);
+            uint Rst = Script.GetDW(0x10u);
             
             var Thread = new System.Threading.Thread(() => {
                 Parallel.For(0, uint.MaxValue, (a, loop) => {
@@ -406,22 +432,13 @@ namespace RLDManager {
             internal bool Valid;
             internal List<uint> StrIndxs;
         }
-
-        //Set DWORD At
+        
         private static void SetDWAt(ref byte[] content, uint pos, uint val) {
             byte[] DW = BitConverter.GetBytes(val);
             if (!BitConverter.IsLittleEndian)
                 Array.Reverse(DW, 0, 4);
             DW.CopyTo(content, pos);
-        }
-
-        //Get DWord At
-        public static uint GetDW(byte[] Arr, uint Pos) {
-            byte[] DW = new byte[] { Arr[Pos], Arr[Pos + 1], Arr[Pos + 2], Arr[Pos + 3] };
-            if (!BitConverter.IsLittleEndian)
-                Array.Reverse(DW, 0, 4);
-            return BitConverter.ToUInt32(DW, 0);
-        }
+        }        
 
     }
 }
