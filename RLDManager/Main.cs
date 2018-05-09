@@ -120,7 +120,7 @@ namespace RLDManager {
                     continue;
                 if (c == ':')
                     continue;
-                if (c == 0x0C || c == 0xAB)//?????
+                if (IsWTF((byte)(c & 0xFF)))
                     continue;
 
                 Minified += c;
@@ -236,12 +236,17 @@ namespace RLDManager {
         private bool IsValidStr(uint At) {
             byte b = 0x00;
             while ((b = Script[At++]) != 0x00)
-                if (!IsChar(b))
+                if (!IsChar(b) && !IsWTF(b))
                     return false;
             return true;
         }
         private bool IsChar(byte b) {
             return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81 ||b == 0x0A || b == 0x0D;
+        }
+
+        //Magical Marriage Lunatics!! [EN]
+        private bool IsWTF(byte b) {
+            return (b == 0x0C || b == 0xAB || b == 0xAC);
         }
         
         public void XOR(ref byte[] Content) {
