@@ -165,7 +165,8 @@ namespace RLDManager {
             Result rst = new Result() {
                 Valid = false,
                 StrIndxs = new List<uint>()
-            };
+            };           
+
             if (Pos + 6 < Script.Length) {
                 if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
                     if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
@@ -226,8 +227,7 @@ namespace RLDManager {
         }
         private bool IsValidDoubleStr(uint At) {
             if (IsValidStr(At)) {
-                while (Script[At++] != 0x00)
-                    continue;
+                At += GetStrLen(At) + 1;
                 if (IsValidStr(At))
                     return true;
             }
@@ -241,7 +241,7 @@ namespace RLDManager {
             return true;
         }
         private bool IsChar(byte b) {
-            return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81;
+            return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81 ||b == 0x0A || b == 0x0D;
         }
         
         public void XOR(ref byte[] Content) {
