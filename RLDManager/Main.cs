@@ -194,27 +194,29 @@ namespace RLDManager {
                         }
                     }
             }
-            if (!rst.Valid) {
-                if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00) {
-                    uint Ptr = Pos - 1;
-                    while (Ptr > 0x10 && Script[Ptr] == 0x00)
-                        Ptr--;
-                    uint i = Pos + 2;
-                    if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF) {
-                        if (IsChar(Script[i]) && IsChar(Script[i + 2])) {
-                            rst.Valid = true;
-                            rst.StrIndxs.Add(i);
-                            while (i < Script.Length && Script[i] != 0x00)
-                                i++;
-                            if (IsChar(Script[++i])) {
-                                if (IsChar(Script[i + 2])) {
-                                    rst.StrIndxs.Add(i);
+            if (Pos + 3 < Script.Length) {
+                if (!rst.Valid) {
+                    if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00) {
+                        uint Ptr = Pos - 1;
+                        while (Ptr > 0x10 && Script[Ptr] == 0x00)
+                            Ptr--;
+                        uint i = Pos + 2;
+                        if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF) {
+                            if (IsChar(Script[i]) && IsChar(Script[i + 2])) {
+                                rst.Valid = true;
+                                rst.StrIndxs.Add(i);
+                                while (i < Script.Length && Script[i] != 0x00)
+                                    i++;
+                                if (IsChar(Script[++i])) {
+                                    if (IsChar(Script[i + 2])) {
+                                        rst.StrIndxs.Add(i);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }         
+            }
 
             return rst;
         }
