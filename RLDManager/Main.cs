@@ -165,8 +165,8 @@ namespace RLDManager {
             Result rst = new Result() {
                 Valid = false,
                 StrIndxs = new List<uint>()
-            };           
-
+            };
+            
             if (Pos + 6 < Script.Length) {
                 if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
                     if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
@@ -246,7 +246,7 @@ namespace RLDManager {
 
         //Magical Marriage Lunatics!! [EN]
         private bool IsWTF(byte b) {
-            return (b == 0x0C || b == 0xAB || b == 0xAC);
+            return (b == 0x0C || (b >= 0xAA && b <= 0xAF));
         }
         
         public void XOR(ref byte[] Content) {
