@@ -167,7 +167,7 @@ namespace RLDManager {
                 StrIndxs = new List<uint>()
             };
             
-            if (Pos + 6 < Script.Length) {
+            if (Pos + 7 < Script.Length) {
                 if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
                     if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
                         uint StrIndx = Pos + 4;
@@ -193,6 +193,22 @@ namespace RLDManager {
                             }
                         }
                     }
+                if (!rst.Valid) {
+                    uint Val = Script.GetDW(Pos);
+                    if (Val == 0x64 && IsChar(Script[Pos + 4])) {
+                        if (Script[Pos + 4] == 0x2A) {
+                            rst.Valid = true;
+                            rst.StrIndxs.Add(Pos + 0x6);
+                        } else {
+                            rst.StrIndxs.Add(Pos + 0x4);
+                            if (IsValidDoubleStr(Pos + 4)) {
+                                uint Ptr = Pos + 4;
+                                Ptr += GetStrLen(Ptr);
+                                rst.StrIndxs.Add(Ptr);
+                            }
+                        }
+                    }
+                }
             }
             if (Pos + 3 < Script.Length) {
                 if (!rst.Valid) {
