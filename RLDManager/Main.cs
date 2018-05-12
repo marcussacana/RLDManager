@@ -1,4 +1,7 @@
-﻿using System;
+﻿//Comment the next line if you get strange results on open the script...
+#define UNSAFE
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -60,6 +63,8 @@ namespace RLDManager {
         byte[] Script;
         uint[] Offsets;
         uint[] Lenghts;
+        Dictionary<uint, string> Prefix;
+        Dictionary<uint, string> Sufix;
         public RLD(byte[] Script) {
             this.Script = Script;
 
@@ -85,7 +90,7 @@ namespace RLDManager {
                     System.IO.File.WriteAllBytes("dump.rld", Script);
             }
             Offsets = new uint[0];
-            for (uint i = 0; i < Script.Length; i++) {
+            for (uint i = 0x20; i < Script.Length; i++) {
                 Result Info = Scan(i);
                 if (!Info.Valid)
                     continue;
@@ -100,35 +105,85 @@ namespace RLDManager {
             //Initialize Variables
             string[] Strs = new string[Offsets.Length];
             Lenghts = new uint[Offsets.Length];
+#if UNSAFE
+            this.Prefix = new Dictionary<uint, string>();
+            this.Sufix = new Dictionary<uint, string>();
+            string Prefix;
+            string Sufix;
+#endif
 
-            for (int i = 0; i < Strs.Length; i++) {
+            for (uint i = 0; i < Strs.LongLength; i++) {
                 Strs[i] = Script.GetStringAt(Offsets[i], Encoding);
+#if UNSAFE
+                TrimCommand(ref Strs[i], out Prefix, out Sufix);
+                this.Prefix[i] = Prefix;
+                this.Sufix[i] = Sufix;
+#endif
+
                 Lenghts[i] = GetStrLen(Offsets[i]);
             }
             return Strs;
         }
 
-        private bool IsCommand(uint ptr) {
-            string String = Script.GetStringAt(ptr, Encoding);
+        internal bool IsCommand(uint ptr) {
+            return IsCommand(Script.GetStringAt(ptr, Encoding));
+        }
+        internal static bool IsCommand(string String) {
             string Minified = string.Empty;
             foreach (char c in String) {
-                if (c >= '0' && c <= '9')
+                if (IsCommand(c))
                     continue;
-                if (c == ',' || c == '.')
-                    continue;
-                if (c == '-' || c == '*')
-                    continue;
-                if (c == ':')
-                    continue;
-                if (IsWTF((byte)(c & 0xFF)))
-                    continue;
-
                 Minified += c;
             }
 
-            return Minified.Length < String.Length / 4;
+#if UNSAFE
+            if (String.ToLower().Contains(".gyu") || String.ToLower().Contains(".rld"))
+                return true;
+            if (String.ToLower().Contains(".dlt") || String.Contains("_"))
+                return true;
+#endif
+            return Minified.Trim().Length < 3;
         }
 
+        internal static bool IsCommand(char c) {
+            if (c >= '0' && c <= '9')
+                return true;
+            if (c == ',' || c == '.')
+                return true;
+            if (c == '-' || c == '*')
+                return true;
+            if (c == ':' || c == ';')
+                return true;
+#if UNSAFE
+            if (c == '!' || c == '\\')
+                return true;
+            if (c == '_' || c == '\t')
+                return true;
+            if (c == '=')
+                return true;
+#endif
+            if (IsWTF((byte)(c & 0xFF)))
+                return true;
+
+            return false;
+        }
+
+#if UNSAFE
+        private void TrimCommand(ref string Str, out string Start, out string End) {
+            bool Unsafe = Str.Contains("-") && (Str.Contains(",") || Str.Contains("\t"));
+            Start = string.Empty;
+            while (IsCommand(Str.First()) || (Unsafe && Str.Length > 3 && IsCommand(Str[1]) && IsCommand(Str[2]))) {
+                Start += Str.First();
+                Str = Str.Substring(1);
+            }
+
+            End = string.Empty;
+            while (IsCommand(Str.Last()) || (Unsafe && Str.Length > 3 && IsCommand(Str[Str.Length - 2]) && IsCommand(Str[Str.Length - 3]))) {
+                End = Str.Last() + End;
+                Str = Str.Substring(0, Str.Length - 1);
+            }
+        }
+#endif
         public byte[] Export(string[] Strings) {
             if (Strings.Length != Offsets.Length)
                 throw new Exception("You Can't add new strings.");
@@ -143,7 +198,11 @@ namespace RLDManager {
                 byte[] Bef = Output.GetRange(0, POS);
 
                 //Compile String
-                byte[] Str = Encoding.GetBytes(Strings[i]);
+#if UNSAFE
+                byte[] Str = Encoding.GetBytes(Prefix[(uint)i] + Strings[(uint)i] + Sufix[(uint)i]);
+#else
+                 byte[] Str = Encoding.GetBytes(Strings[i]);
+#endif
 
                 //Get Content After the string
                 byte[] Aft = Output.GetRange(POS + LEN, (uint)Output.LongLength - (POS + LEN));
@@ -209,6 +268,19 @@ namespace RLDManager {
                         }
                     }
                 }
+#if UNSAFE
+                if (!rst.Valid) {
+                    if (Script[Pos] == 0x00 && Script[Pos + 1] == 0x00) {
+                        uint Ptr = Pos + 2;
+                        if (IsChar(Script[Ptr]) && IsChar(Script[Ptr + 1]) && IsChar(Script[Ptr + 2])) {
+                            if (IsChar(Script[Ptr + 3]) && IsChar(Script[Ptr + 4])) {
+                                rst.Valid = true;
+                                rst.StrIndxs.Add(Ptr);
+                            }
+                        }
+                    }
+                }
+#endif
             }
             if (Pos + 3 < Script.Length) {
                 if (!rst.Valid) {
@@ -263,7 +335,7 @@ namespace RLDManager {
         }
 
         //Magical Marriage Lunatics!! [EN]
-        private bool IsWTF(byte b) {
+        private static bool IsWTF(byte b) {
             return (b == 0x0C || (b >= 0xAA && b <= 0xAF));
         }
         

@@ -1,6 +1,5 @@
 ﻿using RLDManager;
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
@@ -10,13 +9,13 @@ namespace RMGUI {
         public Form1() {
             InitializeComponent();
         }
-        RLD rld;
+        RLDFilter rld;
         private void openToolStripMenuItem_Click(object sender, EventArgs e) {
             OpenFileDialog fd = new OpenFileDialog();
             fd.Title = "Select a Script...";
             fd.Filter = "All ExHIBIT Scripts File|*.rld";
             if (fd.ShowDialog() == DialogResult.OK) {
-                rld = new RLD(System.IO.File.ReadAllBytes(fd.FileName));
+                rld = new RLDFilter(System.IO.File.ReadAllBytes(fd.FileName));
                 string[] STR = rld.Import();
                 Strs.Items.Clear();
                 foreach (string Dialog in STR)
