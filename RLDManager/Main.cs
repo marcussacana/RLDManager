@@ -112,14 +112,20 @@ namespace RLDManager {
             string String = Script.GetStringAt(ptr, Encoding);
             string Minified = string.Empty;
             foreach (char c in String) {
+                if (c == '「' || c == '」')
+                    return false;
+
                 if (c >= '0' && c <= '9')
                     continue;
                 if (c == ',' || c == '.')
                     continue;
                 if (c == '-' || c == '*')
                     continue;
-                if (c == ':')
+                if (c == ':' || c == '#')
                     continue;
+                if (c == '@')
+                    continue;
+
                 if (IsWTF((byte)(c & 0xFF)))
                     continue;
 

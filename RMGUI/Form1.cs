@@ -66,7 +66,7 @@ namespace RMGUI {
                         uint Key = this.Key.Last();
                         if (Key != 0) {
                             Failed = false;
-                            System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLD KEY.txt", "0x" + Key.ToString("X8"));
+                            System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + "RLDKeys.txt", "0x" + Key.ToString("X8"));
                             MessageBox.Show("The Key is: 0x" + Key.ToString("X8") + "\nKey Saved, Try open the script now.", "RMGui", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                     } catch {
