@@ -22,6 +22,7 @@ namespace RLDManager {
                 0xC9E849B1, //Magical Marriage Lunatics [JP]
                 0xFA267D75  //Magical Marriage Lunatics [EN]                
             };
+
             if (System.IO.File.Exists("RLDKeys.txt")) {
                 string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
                 foreach (string Content in CustomKeys) {
@@ -37,6 +38,7 @@ namespace RLDManager {
                     KnowedKeys = KnowedKeys.Append(Key);
                 }
             }
+
             byte[] Tmp = new byte[Script.Length];
             if (LastKnowedKey != 0) {
                 Script.CopyTo(Tmp, 0);
@@ -142,10 +144,17 @@ namespace RLDManager {
             if (String.ToLower().Contains(".dlt") || String.Contains("_"))
                 return true;
 #endif
-            return Minified.Trim().Length < 3;
+            int Min = String.Length / 3;
+            if (Min < 3)
+                Min = 3;
+
+            return Minified.Trim().Length < Min;
         }
 
         internal static bool IsCommand(char c) {
+            if (c == '「' || c == '」')
+                return false;
+
             if (c >= '0' && c <= '9')
                 return true;
             if (c == ',' || c == '.')
@@ -159,7 +168,11 @@ namespace RLDManager {
                 return true;
             if (c == '_' || c == '\t')
                 return true;
-            if (c == '=')
+            if (c == '=' || c == '#')
+                return true;
+            if (c == '(' || c == ')')
+                return true;
+            if (c == '@')
                 return true;
 #endif
             if (IsWTF((byte)(c & 0xFF)))
