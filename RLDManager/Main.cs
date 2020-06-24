@@ -13,12 +13,13 @@ namespace RLDManager {
         /// <returns>The key, if fails returns uint.MaxValue</returns>
         public static uint SelectKey(byte[] Script) {
             uint[] KnowedKeys = new uint[] {
-                0xAD2B78EA, //Sakura no Mori Dreamers
+                0xAD2B78EA, //Sakura no Mori Dreamers [JP]
                 0x39AA8BA0, //Princess Evangile
                 0xE69A420B, //Princess Evangile W
                 0xC9E849B1, //Magical Marriage Lunatics [JP]
                 0xFA267D75, //Magical Marriage Lunatics [EN]   
-                0x2A17122A  //Imouto Paradise 3 [JP]
+                0x2A17122A, //Imouto Paradise 3 [JP]
+                0x0C328491 //Sakura no Mori † Dreamers [JP]
             };
             if (System.IO.File.Exists("RLDKeys.txt")) {
                 string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
@@ -178,14 +179,14 @@ namespace RLDManager {
                 if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
                     if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
                         uint StrIndx = Pos + 4;
-                        rst.Valid = IsChar(Script[StrIndx]) && IsChar(Script[StrIndx + 1]);
+                        rst.Valid = IsChar(Script[StrIndx], out _) && IsChar(Script[StrIndx + 1], out _);
                         if (rst.Valid)
                             rst.StrIndxs.Add(StrIndx);
                     }
                 }
                 if (!rst.Valid)
                     if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF && Script[Pos + 2] == 0xFF && Script[Pos + 3] == 0xFF) {
-                        if (IsChar(Script[Pos + 4])) {
+                        if (IsChar(Script[Pos + 4], out _)) {
                             if (IsValidStr(Pos + 4)) {
                                 rst.Valid = true;
                                 if (IsValidDoubleStr(Pos + 4)) {
@@ -202,7 +203,7 @@ namespace RLDManager {
                     }
                 if (!rst.Valid) {
                     uint Val = Script.GetDW(Pos);
-                    if (Val == 0x64 && IsChar(Script[Pos + 4])) {
+                    if (Val == 0x64 && IsChar(Script[Pos + 4], out _)) {
                         if (Script[Pos + 4] == 0x2A) {
                             rst.Valid = true;
                             rst.StrIndxs.Add(Pos + 0x6);
@@ -225,13 +226,13 @@ namespace RLDManager {
                             Ptr--;
                         uint i = Pos + 2;
                         if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF) {
-                            if (IsChar(Script[i]) && IsChar(Script[i + 2])) {
+                            if (IsChar(Script[i], out _) && IsChar(Script[i + 2], out _)) {
                                 rst.Valid = true;
                                 rst.StrIndxs.Add(i);
                                 while (i < Script.Length && Script[i] != 0x00)
                                     i++;
-                                if (IsChar(Script[++i])) {
-                                    if (IsChar(Script[i + 2])) {
+                                if (IsChar(Script[++i], out _)) {
+                                    if (IsChar(Script[i + 2], out _)) {
                                         rst.StrIndxs.Add(i);
                                     }
                                 }
@@ -260,14 +261,22 @@ namespace RLDManager {
         }
         private bool IsValidStr(uint At) {
             byte b = 0x00;
-            while ((b = Script[At++]) != 0x00)
-                if (!IsChar(b) && !IsWTF(b))
+            while ((b = Script[At++]) != 0x00) { 
+                if (!IsChar(b, out bool MB) && !IsWTF(b))
                     return false;
+                
+                if (MB)
+                    At++;
+            }
             return true;
         }
-        private bool IsChar(byte b) {
-            if (b == 0x82 || b == 0x81 || b == 0x83 || (b >= 0x89 && b <= 0x9F))
+        private bool IsChar(byte b, out bool MultiByte)
+        {
+            MultiByte = true;
+            if (b == 0x82 || b == 0x81 || b == 0x83 || (b >= 0x88 && b <= 0x9F))
                 return true;
+
+            MultiByte = false;
 
             return (b >= 0x20 && b <= 0x7F) || b == 0x0A || b == 0x0D;
         }
