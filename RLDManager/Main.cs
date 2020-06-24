@@ -17,7 +17,8 @@ namespace RLDManager {
                 0x39AA8BA0, //Princess Evangile
                 0xE69A420B, //Princess Evangile W
                 0xC9E849B1, //Magical Marriage Lunatics [JP]
-                0xFA267D75  //Magical Marriage Lunatics [EN]                
+                0xFA267D75, //Magical Marriage Lunatics [EN]   
+                0x2A17122A  //Imouto Paradise 3 [JP]
             };
             if (System.IO.File.Exists("RLDKeys.txt")) {
                 string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
@@ -265,7 +266,10 @@ namespace RLDManager {
             return true;
         }
         private bool IsChar(byte b) {
-            return (b >= 0x20 && b <= 0x7F) || b == 0x82 || b == 0x81 ||b == 0x0A || b == 0x0D;
+            if (b == 0x82 || b == 0x81 || b == 0x83 || (b >= 0x89 && b <= 0x9F))
+                return true;
+
+            return (b >= 0x20 && b <= 0x7F) || b == 0x0A || b == 0x0D;
         }
 
         //Magical Marriage Lunatics!! [EN]
