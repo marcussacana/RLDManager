@@ -30,6 +30,7 @@
             this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.findKeyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.cryptToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.MS.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -63,30 +64,38 @@
             this.MS.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.openToolStripMenuItem,
             this.saveToolStripMenuItem,
-            this.findKeyToolStripMenuItem});
+            this.findKeyToolStripMenuItem,
+            this.cryptToolStripMenuItem});
             this.MS.Name = "MS";
-            this.MS.Size = new System.Drawing.Size(120, 70);
+            this.MS.Size = new System.Drawing.Size(181, 114);
             // 
             // openToolStripMenuItem
             // 
             this.openToolStripMenuItem.Name = "openToolStripMenuItem";
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
+            this.openToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.openToolStripMenuItem.Text = "Open";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
             // 
             // saveToolStripMenuItem
             // 
             this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
-            this.saveToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
+            this.saveToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.saveToolStripMenuItem.Text = "Save";
             this.saveToolStripMenuItem.Click += new System.EventHandler(this.saveToolStripMenuItem_Click);
             // 
             // findKeyToolStripMenuItem
             // 
             this.findKeyToolStripMenuItem.Name = "findKeyToolStripMenuItem";
-            this.findKeyToolStripMenuItem.Size = new System.Drawing.Size(119, 22);
+            this.findKeyToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.findKeyToolStripMenuItem.Text = "Find Key";
             this.findKeyToolStripMenuItem.Click += new System.EventHandler(this.findKeyToolStripMenuItem_Click);
+            // 
+            // cryptToolStripMenuItem
+            // 
+            this.cryptToolStripMenuItem.Name = "cryptToolStripMenuItem";
+            this.cryptToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.cryptToolStripMenuItem.Text = "Crypt";
+            this.cryptToolStripMenuItem.Click += new System.EventHandler(this.cryptToolStripMenuItem_Click);
             // 
             // Form1
             // 
@@ -114,6 +123,7 @@
         private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem findKeyToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem cryptToolStripMenuItem;
     }
 }
 

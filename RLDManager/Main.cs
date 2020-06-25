@@ -1,52 +1,87 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RLDManager {
-    public class RLD {  
+namespace RLDManager
+{
+    class RLDExt
+    {
+        internal static uint[] GetLocalKeys()
+        {
+            List<uint> KnowedKeys = new List<uint>();
+            if (System.IO.File.Exists("RLDKeys.txt"))
+            {
+                string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
+                foreach (string Content in CustomKeys)
+                {
+                    uint Key;
+                    if (Content.StartsWith("0x"))
+                    {
+                        string Hex = Content.Substring(2, Content.Length - 2);
+                        Key = Convert.ToUInt32(Hex, 16);
+                    }
+                    else
+                    {
+                        if (!uint.TryParse(Content, out Key))
+                            continue;
+                    }
+
+                    KnowedKeys.Add(Key);
+                }
+            }
+            return KnowedKeys.ToArray();
+        }
+
+        internal static void DbgDump(byte[] Script)
+        {
+            if (System.Diagnostics.Debugger.IsAttached)
+                System.IO.File.WriteAllBytes("dump.rld", Script);
+        }
+    }
+    public class RLD
+    {
+        public static Dictionary<string, uint> KnowedKeys = new Dictionary<string, uint>() {
+            { "Sakura no Mori Dreamers [JP]",       0xAD2B78EA },
+            { "Sakura no Mori Dreamers [JP] [Alt]", 0x0C328491 },
+            { "Princess Evangile",                  0x39AA8BA0 },
+            { "Princess Evangile W",                0xE69A420B },
+            { "Magical Marriage Lunatics [JP]",     0xC9E849B1 },
+            { "Magical Marriage Lunatics [EN]",     0xFA267D75 },
+            { "Imouto Paradise 3 [JP]",             0x2A17122A },
+            { "Imouto Paradise 3 [EN]",             0x2A18A1A4 }
+        };
+
         /// <summary>
         /// Get The Encryption Key to the given script
         /// </summary>
         /// <param name="Script">The Script to Get the Key</param>
         /// <returns>The key, if fails returns uint.MaxValue</returns>
-        public static uint SelectKey(byte[] Script) {
-            uint[] KnowedKeys = new uint[] {
-                0xAD2B78EA, //Sakura no Mori Dreamers [JP]
-                0x0C328491, //Sakura no Mori Dreamers [JP]
-                0x39AA8BA0, //Princess Evangile
-                0xE69A420B, //Princess Evangile W
-                0xC9E849B1, //Magical Marriage Lunatics [JP]
-                0xFA267D75, //Magical Marriage Lunatics [EN]   
-                0x2A17122A, //Imouto Paradise 3 [JP]
-                0x2A18A1A4  //Imouto Paradise 3 [EN]
-            };
-            if (System.IO.File.Exists("RLDKeys.txt")) {
-                string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
-                foreach (string Content in CustomKeys) {
-                    uint Key;
-                    if (Content.StartsWith("0x")) {
-                        string Hex = Content.Substring(2, Content.Length - 2);
-                        Key = Convert.ToUInt32(Hex, 16);
-                    } else {
-                        if (!uint.TryParse(Content, out Key))
-                            continue;
-                    }
+        public static uint SelectKey(byte[] Script)
+        {
+            uint[] KnowedKeys = RLD.KnowedKeys.Values.ToArray();
 
-                    KnowedKeys = KnowedKeys.Append(Key);
-                }
+            try
+            {
+                KnowedKeys.Append(RLDExt.GetLocalKeys());
             }
+            catch { }
+
             byte[] Tmp = new byte[Script.Length];
-            if (LastKnowedKey != 0) {
+            if (LastKnowedKey != 0)
+            {
                 Script.CopyTo(Tmp, 0);
                 if (new RLD(Tmp, LastKnowedKey).Import().Length > 2)
                     return LastKnowedKey;
             }
 
-            foreach (uint Key in KnowedKeys) {
+            foreach (uint Key in KnowedKeys)
+            {
                 Script.CopyTo(Tmp, 0);
-                if (new RLD(Tmp, Key).Import().Length > 2) {
+                if (new RLD(Tmp, Key).Import().Length > 2)
+                {
                     LastKnowedKey = Key;
                     return Key;
                 }
@@ -63,7 +98,8 @@ namespace RLDManager {
         byte[] Script;
         uint[] Offsets;
         uint[] Lenghts;
-        public RLD(byte[] Script) {
+        public RLD(byte[] Script)
+        {
             this.Script = Script;
 
             uint Key = SelectKey(Script);
@@ -73,27 +109,35 @@ namespace RLDManager {
             EncryptionKey = Key;
         }
 
-        public RLD(byte[] Script, uint Key) {
+        public RLD(byte[] Script, uint Key)
+        {
             this.Script = Script;
             EncryptionKey = Key;
         }
 
 
-        public string[] Import() {
-            if (!Decrypted) {
+        public string[] Import()
+        {
+            if (!Decrypted)
+            {
                 Decrypted = true;
                 XOR(ref Script);
 
-                if (System.Diagnostics.Debugger.IsAttached)
-                    System.IO.File.WriteAllBytes("dump.rld", Script);
+                try
+                {
+                    RLDExt.DbgDump(Script);
+                }
+                catch { }
             }
             Offsets = new uint[0];
-            for (uint i = 0; i < Script.Length; i++) {
+            for (uint i = 0; i < Script.Length; i++)
+            {
                 Result Info = Scan(i);
                 if (!Info.Valid)
                     continue;
 
-                foreach (uint ptr in Info.StrIndxs) {
+                foreach (uint ptr in Info.StrIndxs)
+                {
                     if (Offsets.Contains(ptr) || GetStrLen(ptr) < 3 || IsCommand(ptr))
                         continue;
 
@@ -104,17 +148,20 @@ namespace RLDManager {
             string[] Strs = new string[Offsets.Length];
             Lenghts = new uint[Offsets.Length];
 
-            for (int i = 0; i < Strs.Length; i++) {
+            for (int i = 0; i < Strs.Length; i++)
+            {
                 Strs[i] = Script.GetStringAt(Offsets[i], Encoding);
                 Lenghts[i] = GetStrLen(Offsets[i]);
             }
             return Strs;
         }
 
-        private bool IsCommand(uint ptr) {
+        private bool IsCommand(uint ptr)
+        {
             string String = Script.GetStringAt(ptr, Encoding);
             string Minified = string.Empty;
-            foreach (char c in String) {
+            foreach (char c in String)
+            {
                 if (c == '「' || c == '」')
                     return false;
 
@@ -138,13 +185,15 @@ namespace RLDManager {
             return Minified.Length < String.Length / 4;
         }
 
-        public byte[] Export(string[] Strings) {
+        public byte[] Export(string[] Strings)
+        {
             if (Strings.Length != Offsets.Length)
                 throw new Exception("You Can't add new strings.");
             byte[] Output = new byte[Script.Length];
             Script.CopyTo(Output, 0);
             //Reverse Replace to don't need update offsets after a change.
-            for (int i = Offsets.Length - 1; i >= 0; i--) {
+            for (int i = Offsets.Length - 1; i >= 0; i--)
+            {
                 uint POS = Offsets[i];
                 uint LEN = Lenghts[i];
 
@@ -168,17 +217,22 @@ namespace RLDManager {
             return Output;
         }
 
-       
 
-        private Result Scan(uint Pos) {
-            Result rst = new Result() {
+
+        private Result Scan(uint Pos)
+        {
+            Result rst = new Result()
+            {
                 Valid = false,
                 StrIndxs = new List<uint>()
             };
-            
-            if (Pos + 7 < Script.Length) {
-                if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF) {
-                    if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00) {
+
+            if (Pos + 7 < Script.Length)
+            {
+                if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF)
+                {
+                    if (Script[Pos + 2] == 0x2A && Script[Pos + 3] == 0x00)
+                    {
                         uint StrIndx = Pos + 4;
                         rst.Valid = IsChar(Script[StrIndx], out _) && IsChar(Script[StrIndx + 1], out _);
                         if (rst.Valid)
@@ -186,31 +240,43 @@ namespace RLDManager {
                     }
                 }
                 if (!rst.Valid)
-                    if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF && Script[Pos + 2] == 0xFF && Script[Pos + 3] == 0xFF) {
-                        if (IsChar(Script[Pos + 4], out _)) {
-                            if (IsValidStr(Pos + 4)) {
+                    if (Script[Pos] == 0xFF && Script[Pos + 1] == 0xFF && Script[Pos + 2] == 0xFF && Script[Pos + 3] == 0xFF)
+                    {
+                        if (IsChar(Script[Pos + 4], out _))
+                        {
+                            if (IsValidStr(Pos + 4))
+                            {
                                 rst.Valid = true;
-                                if (IsValidDoubleStr(Pos + 4)) {
+                                if (IsValidDoubleStr(Pos + 4))
+                                {
                                     uint Ptr = Pos + 4;
                                     rst.StrIndxs.Add(Ptr);
                                     while (Script[Ptr++] != 0x00)
                                         continue;
                                     rst.StrIndxs.Add(Ptr);
-                                } else {
+                                }
+                                else
+                                {
                                     rst.StrIndxs.Add(Pos + 4);
                                 }
                             }
                         }
                     }
-                if (!rst.Valid) {
+                if (!rst.Valid)
+                {
                     uint Val = Script.GetDW(Pos);
-                    if (Val == 0x64 && IsChar(Script[Pos + 4], out _)) {
-                        if (Script[Pos + 4] == 0x2A) {
+                    if (Val == 0x64 && IsChar(Script[Pos + 4], out _))
+                    {
+                        if (Script[Pos + 4] == 0x2A)
+                        {
                             rst.Valid = true;
                             rst.StrIndxs.Add(Pos + 0x6);
-                        } else {
+                        }
+                        else
+                        {
                             rst.StrIndxs.Add(Pos + 0x4);
-                            if (IsValidDoubleStr(Pos + 4)) {
+                            if (IsValidDoubleStr(Pos + 4))
+                            {
                                 uint Ptr = Pos + 4;
                                 Ptr += GetStrLen(Ptr);
                                 rst.StrIndxs.Add(Ptr);
@@ -219,21 +285,28 @@ namespace RLDManager {
                     }
                 }
             }
-            if (Pos + 3 < Script.Length) {
-                if (!rst.Valid) {
-                    if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00) {
+            if (Pos + 3 < Script.Length)
+            {
+                if (!rst.Valid)
+                {
+                    if (Script[Pos] == 0x2A && Script[Pos + 1] == 0x00)
+                    {
                         uint Ptr = Pos - 1;
                         while (Ptr > 0x10 && Script[Ptr] == 0x00)
                             Ptr--;
                         uint i = Pos + 2;
-                        if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF) {
-                            if (IsChar(Script[i], out _) && IsChar(Script[i + 2], out _)) {
+                        if (Script[Ptr] == 0xFF && Script[Ptr - 1] == 0xFF)
+                        {
+                            if (IsChar(Script[i], out _) && IsChar(Script[i + 2], out _))
+                            {
                                 rst.Valid = true;
                                 rst.StrIndxs.Add(i);
                                 while (i < Script.Length && Script[i] != 0x00)
                                     i++;
-                                if (IsChar(Script[++i], out _)) {
-                                    if (IsChar(Script[i + 2], out _)) {
+                                if (IsChar(Script[++i], out _))
+                                {
+                                    if (IsChar(Script[i + 2], out _))
+                                    {
                                         rst.StrIndxs.Add(i);
                                     }
                                 }
@@ -246,26 +319,31 @@ namespace RLDManager {
             return rst;
         }
 
-        private uint GetStrLen(uint At) {
+        private uint GetStrLen(uint At)
+        {
             uint Len = 0;
             while (Script[At + Len] != 0x00)
                 Len++;
             return Len;
         }
-        private bool IsValidDoubleStr(uint At) {
-            if (IsValidStr(At)) {
+        private bool IsValidDoubleStr(uint At)
+        {
+            if (IsValidStr(At))
+            {
                 At += GetStrLen(At) + 1;
                 if (IsValidStr(At))
                     return true;
             }
             return false;
         }
-        private bool IsValidStr(uint At) {
+        private bool IsValidStr(uint At)
+        {
             byte b = 0x00;
-            while ((b = Script[At++]) != 0x00) { 
+            while ((b = Script[At++]) != 0x00)
+            {
                 if (!IsChar(b, out bool MB) && !IsWTF(b))
                     return false;
-                
+
                 if (MB)
                     At++;
             }
@@ -283,11 +361,13 @@ namespace RLDManager {
         }
 
         //Magical Marriage Lunatics!! [EN]
-        private bool IsWTF(byte b) {
+        private bool IsWTF(byte b)
+        {
             return (b == 0x0C || (b >= 0xAA && b <= 0xAF));
         }
-        
-        public void XOR(ref byte[] Content) {
+
+        public void XOR(ref byte[] Content)
+        {
             uint Key = EncryptionKey;
 
             uint BlockCount = (uint)Content.Length;
@@ -297,7 +377,8 @@ namespace RLDManager {
 
             BlockCount -= (BlockCount % 4);
             uint[] Keys = GenKeyTable(Key);
-            for (uint i = 0x10, ri = 0; i < BlockCount; i += 4, ri++) {
+            for (uint i = 0x10, ri = 0; i < BlockCount; i += 4, ri++)
+            {
                 uint enc = Content.GetDW(i);
                 uint tmp = Keys[(ri & 0xFF)];
                 SetDWAt(ref Content, i, tmp ^ enc);
@@ -305,28 +386,34 @@ namespace RLDManager {
         }
 
         static long Progress = 0;
-        public static string FindProgress {
-            get {
-                double Prog = ((double)Progress/uint.MaxValue) * 100;               
+        public static string FindProgress
+        {
+            get
+            {
+                double Prog = ((double)Progress / uint.MaxValue) * 100;
                 return string.Format("Remaining: {0}|Progress: {1}%", uint.MaxValue - Progress, (int)Prog);
             }
         }
 
-        public static bool FindKey(byte[] Script, out uint[] FoundKey) {
+        public static bool FindKey(byte[] Script, out uint[] FoundKey)
+        {
             Progress = 0;
             object Locker = new object();
             List<uint> Results = new List<uint>();
             bool Continue = true;
             uint Rst = Script.GetDW(0x10u);
-            
-            var Thread = new System.Threading.Thread(() => {
-                Parallel.For(0, uint.MaxValue, (a, loop) => {
+
+            var Thread = new System.Threading.Thread(() =>
+            {
+                Parallel.For(0, uint.MaxValue, (a, loop) =>
+                {
                     Progress++;
 
                     if (!Continue)
                         loop.Break();
 
-                    unchecked {
+                    unchecked
+                    {
                         uint Seed = (uint)a;
 
                         uint[] Keys;
@@ -337,7 +424,8 @@ namespace RLDManager {
                         uint[] Buffer = new uint[End];
                         uint Index = 0;
 
-                        do {
+                        do
+                        {
                             //Gen Seed
                             ECX = (EDX * 0x10DCD) + 1;
                             Buffer[Index++] = (EDX & 0xFFFF0000) | ((ECX >> 0x10) & 0x0000FFFF);
@@ -375,7 +463,8 @@ namespace RLDManager {
 
                         Key ^= Seed;
 
-                        if ((Key ^ Rst) < 0xF) {
+                        if ((Key ^ Rst) < 0xF)
+                        {
                             Results.Add(Seed);
                         }
                     }
@@ -385,9 +474,11 @@ namespace RLDManager {
             Thread.Start();
 
             int LastCount = 0;
-            while (Thread.IsAlive) {
+            while (Thread.IsAlive)
+            {
                 System.Threading.Thread.Sleep(500);
-                if (Results.Count > LastCount) {
+                if (Results.Count > LastCount)
+                {
                     LastCount = Results.Count;
 
                     byte[] Tmp = new byte[Script.Length];
@@ -404,20 +495,23 @@ namespace RLDManager {
             FoundKey = Results.ToArray();
             return FoundKey.Length > 0;
         }
-        
 
-        private static uint[] GenKeyTable(uint Seed) {
+
+        private static uint[] GenKeyTable(uint Seed)
+        {
             uint[] Keys = GenSeeds(Seed);
             uint[] Seeds = new uint[Keys.Length];
             Keys.CopyTo(Seeds, 0);
-            for (uint i = 0; i < Keys.Length; i++) {
+            for (uint i = 0; i < Keys.Length; i++)
+            {
                 uint Key = KeyWork(i, ref Keys, ref Seeds);
                 Keys[i] = Key ^ Seed;
             }
             return Keys;
         }
 
-        private static uint[] GenSeeds(uint Key) {
+        private static uint[] GenSeeds(uint Key)
+        {
             uint EDX = Key;
             uint EAX = 0x00510010;
             uint ECX = 0x0000225C;
@@ -426,7 +520,8 @@ namespace RLDManager {
             uint[] Buffer = new uint[EBX];
             uint EDI = 0;
 
-            do {
+            do
+            {
                 //Gen Seed
                 ECX = (EDX * 0x10DCD);
                 EAX = (EDX & 0xFFFF0000) | (((ECX + 1) >> 0x10) & 0x0000FFFF);
@@ -442,8 +537,10 @@ namespace RLDManager {
             return Buffer;
         }
 
-        private static uint KeyWork(uint i, ref uint[] Keys, ref uint[] OriKeys) {
-            unchecked {
+        private static uint KeyWork(uint i, ref uint[] Keys, ref uint[] OriKeys)
+        {
+            unchecked
+            {
                 uint ECX = Keys[i];
                 uint EDX = i + 1;
                 if (EDX >= Keys.Length)
@@ -471,17 +568,19 @@ namespace RLDManager {
             }
         }
 
-        struct Result {
+        struct Result
+        {
             internal bool Valid;
             internal List<uint> StrIndxs;
         }
-        
-        private static void SetDWAt(ref byte[] content, uint pos, uint val) {
+
+        private static void SetDWAt(ref byte[] content, uint pos, uint val)
+        {
             byte[] DW = BitConverter.GetBytes(val);
             if (!BitConverter.IsLittleEndian)
                 Array.Reverse(DW, 0, 4);
             DW.CopyTo(content, pos);
-        }        
+        }
 
     }
 }
