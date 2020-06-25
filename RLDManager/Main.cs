@@ -14,12 +14,13 @@ namespace RLDManager {
         public static uint SelectKey(byte[] Script) {
             uint[] KnowedKeys = new uint[] {
                 0xAD2B78EA, //Sakura no Mori Dreamers [JP]
+                0x0C328491, //Sakura no Mori Dreamers [JP]
                 0x39AA8BA0, //Princess Evangile
                 0xE69A420B, //Princess Evangile W
                 0xC9E849B1, //Magical Marriage Lunatics [JP]
                 0xFA267D75, //Magical Marriage Lunatics [EN]   
                 0x2A17122A, //Imouto Paradise 3 [JP]
-                0x0C328491 //Sakura no Mori † Dreamers [JP]
+                0x2A18A1A4  //Imouto Paradise 3 [EN]
             };
             if (System.IO.File.Exists("RLDKeys.txt")) {
                 string[] CustomKeys = System.IO.File.ReadAllLines("RLDKeys.txt");
