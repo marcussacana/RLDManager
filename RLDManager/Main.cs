@@ -65,7 +65,8 @@ namespace RLDManager
 
             try
             {
-                KnowedKeys.Append(RLDExt.GetLocalKeys());
+                KnowedKeys = KnowedKeys.Append(RLDExt.GetLocalKeys());
+                KnowedKeys = KnowedKeys.Reverse().ToArray();
             }
             catch { }
 
