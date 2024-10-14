@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -399,19 +400,14 @@ namespace RLDManager
         public static bool FindKey(byte[] Script, out uint[] FoundKey)
         {
             Progress = 0;
-            object Locker = new object();
-            List<uint> Results = new List<uint>();
-            bool Continue = true;
+            ConcurrentQueue<uint> Results = new ConcurrentQueue<uint>();
             uint Rst = Script.GetDW(0x10u);
 
             var Thread = new System.Threading.Thread(() =>
             {
                 Parallel.For(0, uint.MaxValue, (a, loop) =>
                 {
-                    Progress++;
-
-                    if (!Continue)
-                        loop.Break();
+                    System.Threading.Interlocked.Increment(ref Progress);
 
                     unchecked
                     {
@@ -466,31 +462,21 @@ namespace RLDManager
 
                         if ((Key ^ Rst) < 0xF)
                         {
-                            Results.Add(Seed);
+                            // defensive copy, since RLD import process writes to the array
+                            byte[] LocalScript = Script.ToArray();
+
+                            if (new RLD(LocalScript, Seed).Import().Length >= 2)
+                            {
+                                Results.Enqueue(Seed);
+                                loop.Break();
+                            }
                         }
                     }
                 });
             });
 
             Thread.Start();
-
-            int LastCount = 0;
-            while (Thread.IsAlive)
-            {
-                System.Threading.Thread.Sleep(500);
-                if (Results.Count > LastCount)
-                {
-                    LastCount = Results.Count;
-
-                    byte[] Tmp = new byte[Script.Length];
-                    Script.CopyTo(Tmp, 0);
-
-                    Continue = new RLD(Tmp, Results.Last()).Import().Length < 2;
-
-                    if (!Continue)
-                        Results = new List<uint>() { Results.Last() };
-                }
-            }
+            Thread.Join();
 
             Progress = uint.MaxValue;
             FoundKey = Results.ToArray();
